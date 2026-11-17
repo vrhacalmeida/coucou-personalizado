@@ -199,6 +199,7 @@ pub struct Request<'a> {
     pub prompt: &'a str,
     pub web: bool,
     pub no_web_policy: Option<&'a Path>,
+    pub image: Option<&'a Path>,
 }
 
 /// The prompt as the tool receives it: the system prompt on top.
@@ -243,6 +244,7 @@ fn args(cli: Cli, r: &Request<'_>, prompt_arg: bool) -> Vec<OsString> {
                  "--sandbox", "read-only", "--color", "never"]
                     .map(String::from),
             );
+            if let Some(image) = r.image { out.extend(["--image".into(), image.to_string_lossy().into_owned()]); }
             for feature in ["shell_tool", "unified_exec", "apps", "plugins", "hooks"] {
                 out.extend(["--disable".into(), feature.into()]);
             }
@@ -493,13 +495,20 @@ pub async fn send(
         ));
     };
     let turn = chat.begin(&format!("subscription:{provider}"));
-    let reads_file = turn.first && matches!(context, Some(ChatContext::File { .. }));
+    let reads_file = matches!(context, Some(ChatContext::File { .. }));
+    let image = match context.as_ref() {
+        Some(ChatContext::File { path, .. }) if ["png", "jpg", "jpeg", "gif", "webp"].contains(&Path::new(path).extension().and_then(|e| e.to_str()).unwrap_or("")) => Some(Path::new(path)),
+        _ => None,
+    };
+    if image.is_some() && !matches!(cli, Cli::Codex | Cli::Claude) {
+        return Err("Este CLI não aceita imagens neste chat. Selecione Codex ou um provedor com visão por API.".into());
+    }
     let system = chat::system_prompt(!reads_file);
     let text = if cli == Cli::Claude {
         // Reading a dropped file, Claude Code reads it itself and gets no web at all.
         let inbox = crate::files::inbox_dir();
         let tools: &[&str] = if reads_file { &["Read"] } else { &["WebSearch", "WebFetch"] };
-        let prompt = claude_code::chat_prompt(&turn.history, turn.first, context.as_ref(), &query);
+        let prompt = claude_code::chat_prompt(&turn.history, turn.first || reads_file, context.as_ref(), &query);
         claude_code::ask(&claude_code::Request {
             model,
             system: &system,
@@ -510,18 +519,18 @@ pub async fn send(
         })
         .await?
     } else {
-        let prompt = chat_prompt(&turn.history, turn.first, context.as_ref(), &query);
+        let prompt = chat_prompt(&turn.history, turn.first || reads_file, context.as_ref(), &query);
         let policy = (cli == Cli::Gemini && reads_file).then(|| {
             let path = settings::local_dir().join("relay").join("gemini-no-web.toml");
             let _ = std::fs::create_dir_all(settings::local_dir().join("relay"));
             let _ = std::fs::write(&path, NO_WEB_POLICY);
             path
         });
-        let request = Request { model: None, system: &system, prompt: &prompt, web: !reads_file, no_web_policy: policy.as_deref() };
+        let request = Request { model: None, system: &system, prompt: &prompt, web: !reads_file, no_web_policy: policy.as_deref(), image };
         ask(cli, &exe, &request).await?
     };
     // The record keeps the file's name, never its contents: later turns search the web.
-    let plain = chat::plain_question(turn.first, context.as_ref(), &query);
+    let plain = chat::plain_question(turn.first || reads_file, context.as_ref(), &query);
     chat.commit(&turn, json!({ "role": "user", "content": plain }), json!({ "role": "assistant", "content": text }), &plain, &text);
     Ok(ChatReply { text })
 }
@@ -542,7 +551,7 @@ fn chat_prompt(history: &[Value], first: bool, context: Option<&ChatContext>, qu
     match context.filter(|_| first) {
         Some(ChatContext::File { name, path }) => match inline_text(Path::new(path)) {
             Some(body) => out.push_str(&format!("File: {name}\nFile contents:\n{body}\n\n")),
-            None => out.push_str(&format!("File: {name} (its contents can't be read here)\n\n")),
+            None => out.push_str(&format!("Attached file: {name}\n\n")),
         },
         Some(ChatContext::Window { app_name, title, url }) => {
             out.push_str(&chat::window_line(app_name, title, url.as_deref()));
@@ -588,7 +597,7 @@ mod tests {
     }
 
     fn request(web: bool) -> Request<'static> {
-        Request { model: None, system: "SYS", prompt: "Hello?", web, no_web_policy: None }
+        Request { model: None, system: "SYS", prompt: "Hello?", web, no_web_policy: None, image: None }
     }
 
     #[test]
@@ -688,5 +697,17 @@ mod tests {
         set(&mut s, "cursor", false);
         assert_eq!(s.chat_provider, "anthropic");
         assert_eq!(status(&s).len(), PROVIDERS.len());
+    }
+}
+
+#[cfg(test)] mod clipboard_image_args_tests {
+    #[test] fn codex_receives_native_image_argument_without_shell_or_search() {
+        let request = super::Request { model: None, system: "SYS", prompt: "Describe the screenshot", web: false, no_web_policy: None, image: Some(std::path::Path::new("C:/User Files/screenshot.png")) };
+        let args = super::args(super::Cli::Codex, &request, false);
+        let args: Vec<_> = args.iter().map(|a| a.to_string_lossy()).collect();
+        let i = args.iter().position(|a| a == "--image").unwrap();
+        assert_eq!(args[i+1], "C:/User Files/screenshot.png");
+        assert!(!args.iter().any(|a| a == "--search"));
+        assert!(args.iter().any(|a| a == "read-only"));
     }
 }

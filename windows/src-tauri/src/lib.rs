@@ -626,6 +626,12 @@ fn chat_reset(chat: State<Chat>) {
 
 /// Copies a dropped file into the inbox and reports its name back.
 #[tauri::command]
+fn paste_chat_image(window: tauri::WebviewWindow, bytes: Vec<u8>) -> Result<files::DroppedFile, String> {
+    if window.label() != island::WINDOW_LABEL { return Err("not from island".into()); }
+    files::ingest_clipboard(&bytes)
+}
+
+#[tauri::command]
 fn ingest_file(path: String) -> Result<DroppedFile, String> {
     files::ingest(&path)
 }
@@ -981,6 +987,7 @@ pub fn run() {
             local_set_key,
             chat_reset,
             ingest_file,
+            paste_chat_image,
             secret_present,
             claude_ready,
             subscription_status,

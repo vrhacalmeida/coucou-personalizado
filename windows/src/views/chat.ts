@@ -273,7 +273,34 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
     body.classList.toggle("picking", picker.isOpen);
     drawModelButton();
   });
-  body.append(chipRow, importedNote, importFile, log, picker.el, modelRow, bar);
+  const imagePreview = h("div", { class: "chat-image-preview" });
+  const pasteNote = h("div", { class: "chat-paste-note" });
+  const thumb = document.createElement("img"); thumb.alt = "Imagem anexada";
+  const removeImage = h("button", { text: "Remover imagem", onclick: () => {
+    if (sending) return;
+    if (State.pastedImage) URL.revokeObjectURL(State.pastedImage.preview);
+    State.pastedImage = null; State.notify();
+  } });
+  imagePreview.append(thumb, removeImage);
+  body.append(chipRow, importedNote, importFile, log, picker.el, modelRow, imagePreview, pasteNote, bar);
+  let pasting = false;
+  input.addEventListener("paste", async (event) => {
+    const image = Array.from(event.clipboardData?.items ?? []).find((item) => item.kind === "file" && item.type.startsWith("image/"));
+    if (!image) return; // ordinary text keeps its native paste behavior
+    event.preventDefault();
+    if (sending || pasting) return;
+    const file = image.getAsFile(); if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { pasteNote.textContent = "A imagem deve ter no máximo 5 MB."; return; }
+    pasting = true; pasteNote.textContent = "Preparando imagem…";
+    try {
+      const saved = await Bridge.pasteChatImage(Array.from(new Uint8Array(await file.arrayBuffer())));
+      if (State.pastedImage) URL.revokeObjectURL(State.pastedImage.preview);
+      State.pastedImage = { name: saved.name, path: saved.path, preview: URL.createObjectURL(file) };
+      pasteNote.textContent = "A imagem será enviada ao modelo quando você clicar em Enviar.";
+      State.notify(); onHeightChange();
+    } catch (err) { pasteNote.textContent = String(err).replace(/^Error:\s*/, ""); }
+    finally { pasting = false; input.focus(); }
+  });
   void loadSubscriptions().then(() => drawModelButton());
 
   const el = h("div", { class: "view" }, h("div", { class: "card wash chat-card" }, body));
@@ -310,8 +337,8 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
   });
 
   async function submit() {
-    const query = input.value.trim();
-    if (!query || sending) return;
+    const query = input.value.trim() || (State.pastedImage ? "Analise esta imagem." : "");
+    if ((!query && !State.pastedImage) || sending || pasting) return;
     if (picker.isOpen) picker.close();
     input.value = "";
     sending = true;
@@ -323,9 +350,9 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
     State.notify();
     onHeightChange();
 
-    const file = State.droppedFile;
+    const file = State.pastedImage || State.droppedFile;
     const context: ChatContext | null =
-      State.chatHistory.length === 1 && file ? { kind: "file", name: file.name, path: file.path } : null;
+      (State.pastedImage || State.chatHistory.length === 1) && file ? { kind: "file", name: file.name, path: file.path } : null;
 
     try {
       const imported = State.importedChat;
@@ -372,6 +399,10 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
   return {
     el,
     sync() {
+      imagePreview.style.display = State.pastedImage ? "flex" : "none";
+      if (State.pastedImage && thumb.getAttribute("src") !== State.pastedImage.preview) thumb.src = State.pastedImage.preview;
+      if (!State.pastedImage) { thumb.removeAttribute("src"); if (!pasting) pasteNote.textContent = ""; }
+      removeImage.disabled = sending;
       importBtn.disabled = sending;
       importedNote.disabled = sending;
       importedNote.hidden = State.importedChat == null;

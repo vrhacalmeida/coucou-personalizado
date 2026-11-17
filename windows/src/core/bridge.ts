@@ -486,6 +486,7 @@ export const Bridge = {
   /** The island's copy, asked once at start (then the "whatsapp" event). Island only. */
   whatsappIsland: () => call<WaIslandView>("whatsapp_island"),
   /** A conversation opened in the card: its latest messages, the receipt if Settings says so. */
+  pasteChatImage: (bytes: number[]) => callOrThrow<{ name: string; path: string; size: number }>("paste_chat_image", { bytes }),
   whatsappMedia: (chat: string, message: string) => callOrThrow<string>("whatsapp_media", { chat, message }),
   whatsappOpen: (chat: string) => call<void>("whatsapp_open", { chat }),
   whatsappClose: (chat: string) => call<void>("whatsapp_close", { chat }),

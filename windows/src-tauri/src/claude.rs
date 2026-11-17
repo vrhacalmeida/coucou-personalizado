@@ -165,7 +165,7 @@ pub async fn send(
     let endpoint = endpoint()?;
 
     let turn = chat.begin(chat::ANTHROPIC);
-    let user = json!({ "role": "user", "content": user_content(turn.first, context.as_ref(), &query) });
+    let user = json!({ "role": "user", "content": user_content(turn.first || matches!(context, Some(ChatContext::File { .. })), context.as_ref(), &query) });
     let body = request_body(model, &chat::system_prompt(true), &turn.history, &user);
 
     let response = call(&endpoint, &key, &body).await?;

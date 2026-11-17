@@ -772,6 +772,8 @@ export class Island {
     State.droppedFile = { name, path };
     State.promptContext = { kind: "file", name, path };
     State.chatHistory = [];
+    if (State.pastedImage) URL.revokeObjectURL(State.pastedImage.preview);
+    State.pastedImage = null;
     State.importedChat = null;
     void Bridge.chatReset();
 

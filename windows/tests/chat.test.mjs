@@ -188,3 +188,26 @@ test("a failed request keeps the imported transcript for retry", async () => {
   await flush();
   assert.equal(State.importedChat.text, "Contexto anterior");
 });
+
+test("pasting an image previews it and sends a real attachment after an existing conversation", async () => {
+  State.pastedImage = null;
+  State.chatHistory = [{ id: 90, role: "assistant", content: "Previous answer" }];
+  answers.paste_chat_image = { name: "screenshot.png", path: "C:/inbox/screenshot.png", size: 8 };
+  answers.chat_send = { text: "I can see the image" };
+  const image = new File([new Uint8Array([137,80,78,71,13,10,26,10])], "screenshot.png", { type: "image/png" });
+  const event = { clipboardData: { items: [{ kind: "file", type: "image/png", getAsFile: () => image }] }, prevented: false, preventDefault() { this.prevented = true; } };
+  await $(".chat-input").listeners.get("paste")[0](event);
+  assert.equal(event.prevented, true);
+  assert.equal(State.pastedImage.path, "C:/inbox/screenshot.png");
+  view.sync();
+  assert.equal($(".chat-image-preview").style.display, "flex");
+  $(".chat-input").value = "What is wrong in this screenshot?";
+  $(".send-btn").fire("click");
+  await flush();
+  assert.deepEqual(sent("chat_send").at(-1).context, { kind: "file", name: "screenshot.png", path: "C:/inbox/screenshot.png" });
+  URL.revokeObjectURL(State.pastedImage.preview); State.pastedImage = null;
+});
+test("ordinary text paste is not intercepted", async () => {
+  const event = { clipboardData: { items: [{ kind: "string", type: "text/plain" }] }, preventDefault() { throw new Error("Text paste must stay native"); } };
+  await $(".chat-input").listeners.get("paste")[0](event);
+});

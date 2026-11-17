@@ -244,6 +244,7 @@ class AppState {
   noteMessage: string | null = null;
   searchResult: SearchResult | null = null;
   chatHistory: ChatMessage[] = [];
+  pastedImage: { name: string; path: string; preview: string } | null = null;
   importedChat: { name: string; text: string } | null = null;
   pendingApproval: ApprovalInfo | null = null;
   /** Requests waiting in line when another card is already up (Mac ApprovalQueue). */

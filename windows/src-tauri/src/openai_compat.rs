@@ -84,7 +84,7 @@ fn url(p: &Provider, tail: &str) -> Result<Url, String> {
 
 /// The user's message for one turn: plain text, or text and an image part
 /// when the first turn carries a dropped picture.
-fn user_message(first: bool, context: Option<&ChatContext>, query: &str) -> Value {
+pub(crate) fn user_message(first: bool, context: Option<&ChatContext>, query: &str) -> Value {
     let mut prefix = String::new();
     let mut image = None;
     match context.filter(|_| first) {
@@ -164,7 +164,7 @@ pub async fn send(
         return Err(tf("Pick a {name} model above the chat box.", &[("name", p.name)]));
     }
     let turn = chat.begin(p.id);
-    let user = user_message(turn.first, context.as_ref(), &query);
+    let user = user_message(turn.first || matches!(context, Some(ChatContext::File { .. })), context.as_ref(), &query);
     let body = request_body(p, model, &chat::system_prompt(false), &turn.history, &user);
 
     let endpoint = url(p, "chat/completions")?;

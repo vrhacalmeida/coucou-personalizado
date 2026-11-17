@@ -3796,3 +3796,9 @@ img.wa-preview-media { cursor: zoom-in; }
 .chat-import { font-size: 11px; color: #a9dfc1; cursor: pointer; margin-right: auto; }
 .chat-import-note { font-size: 11px; color: #a9dfc1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; flex-shrink: 0; }
 .chat-import-note[hidden] { display: none; }
+
+.chat-image-preview { align-items: center; gap: 10px; flex-shrink: 0; }
+.chat-image-preview img { width: 64px; height: 48px; object-fit: contain; border-radius: 6px; }
+.chat-image-preview button { color: #baf5d1; cursor: pointer; font-size: 11px; }
+.chat-paste-note { font-size: 10px; color: #b4bac4; }
+.chat-paste-note:empty { display: none; }

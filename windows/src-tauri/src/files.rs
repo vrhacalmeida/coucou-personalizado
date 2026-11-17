@@ -198,3 +198,29 @@ mod drop_tests {
         assert!(!take_dropped("/tmp/bounded-0"));
     }
 }
+
+/// Clipboard bytes only: no arbitrary path can be read through this command.
+pub fn ingest_clipboard(bytes: &[u8]) -> Result<DroppedFile, String> {
+    if bytes.len() > 5 * 1024 * 1024 { return Err("A imagem deve ter no maximo 5 MB.".into()); }
+    let ext = if bytes.starts_with(b"\x89PNG\r\n\x1a\n") { "png" }
+        else if bytes.starts_with(&[0xff, 0xd8, 0xff]) { "jpg" }
+        else if bytes.starts_with(b"GIF87a") || bytes.starts_with(b"GIF89a") { "gif" }
+        else if bytes.starts_with(b"RIFF") && bytes.get(8..12) == Some(b"WEBP") { "webp" }
+        else { return Err("Cole uma imagem PNG, JPEG, GIF ou WebP.".into()); };
+    let dir = inbox_dir();
+    crate::platform::ensure_private_dir(&dir).map_err(|e| e.to_string())?;
+    let stamp = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).map_err(|e| e.to_string())?.as_nanos();
+    let name = format!("imagem-colada-{stamp}.{ext}");
+    let path = dir.join(&name);
+    use std::io::Write;
+    let mut file = std::fs::OpenOptions::new().write(true).create_new(true).open(&path).map_err(|e| e.to_string())?;
+    if let Err(e) = file.write_all(bytes) { let _ = std::fs::remove_file(&path); return Err(e.to_string()); }
+    Ok(DroppedFile { name, path: path.to_string_lossy().into_owned(), size: bytes.len() as u64 })
+}
+
+#[cfg(test)] mod clipboard_tests {
+    #[test] fn rejects_non_images_and_oversize_before_writing() {
+        assert!(super::ingest_clipboard(b"<script>not an image</script>").is_err());
+        assert!(super::ingest_clipboard(&vec![0u8; 5 * 1024 * 1024 + 1]).is_err());
+    }
+}
