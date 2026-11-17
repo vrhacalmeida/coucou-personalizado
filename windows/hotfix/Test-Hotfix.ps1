@@ -32,14 +32,15 @@ try {
 
     # Reproduce quoted InstallLocation returned by Windows uninstall entries.
     $test = Prepare 'quoted-autodetection'
-    $script:QuotedInstall = '"' + $test.Install + '"'
-    function Get-ItemProperty { [CmdletBinding()] param($Path) @{ DisplayName = 'Coucou'; InstallLocation = $script:QuotedInstall } }
+    $global:CoucouTestQuotedInstall = '"' + $test.Install + '"'
+    function Get-ItemProperty { [CmdletBinding()] param($Path) @{ DisplayName = 'Coucou'; InstallLocation = $global:CoucouTestQuotedInstall } }
     function Get-Process { [CmdletBinding()] param($Name) @() }
     try {
         & $test.Apply
         Check (([IO.File]::ReadAllText((Join-Path $test.Install 'coucou.exe'))) -eq 'new-app') 'Quoted automatic detection did not update the app'
     } finally {
         Remove-Item Function:\Get-ItemProperty, Function:\Get-Process
+        Remove-Variable CoucouTestQuotedInstall -Scope Global
     }
 
     $test = Prepare 'bad-hash'
