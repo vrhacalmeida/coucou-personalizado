@@ -59,7 +59,7 @@ Se houver erro depois de abrir a nova versao, feche o Coucou e copie os .exe do 
 sobre os arquivos da pasta de instalacao. O rollback automatico cobre falhas de copia, nao falhas
 funcionais detectadas depois. Nao apague os backups antes de validar a nova versao.
 Os hashes conferem integridade; use apenas pacotes de origem confiavel.
-Atualizacoes oficiais do Coucou podem substituir esta personalizacao.
+O buscador de atualizacoes consulta somente o repositorio personalizado, evitando oferecer builds originais sobre esta personalizacao. Os pacotes de hotfix ficam em Actions.
 
 ## Gerar um hotfix no Windows
 

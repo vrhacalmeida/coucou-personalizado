@@ -1014,6 +1014,15 @@ let generalSync: (() => void) | null = null;
 function generalSection(): HTMLElement {
   const nameInput = h("input", { type: "text", maxlength: "32", value: settings.appName || "Coucou", "aria-label": "Nome do assistente" }) as HTMLInputElement;
   const nameHint = h("div", { class: "hint", text: `Chamada de voz: OK ${cleanAppName(settings.appName)}. Use letras, números, espaços, ponto, hífen ou sublinhado.` });
+  // Redrawing the settings after a rename replaces the old hint node. Load the
+  // alias for each newly drawn page as well, so the command is still visible.
+  const shownName = cleanAppName(settings.appName);
+  nameHint.style.overflowWrap = "anywhere";
+  void Bridge.brandingCommand().then((command) => {
+    if (command && cleanAppName(settings.appName) === shownName) {
+      nameHint.textContent = `Chamada de voz: OK ${shownName}. Para abrir pelo PowerShell: & "${command}"`;
+    }
+  });
   const nameSave = h("button", { text: "Salvar nome", onclick: async () => {
     const next = cleanAppName(nameInput.value);
     if (next === "Coucou" && nameInput.value.trim() && nameInput.value.trim() !== "Coucou") {
