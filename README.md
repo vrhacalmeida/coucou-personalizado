@@ -1,4 +1,4 @@
-> **Versão personalizada:** melhorias no WhatsApp, chat como tela inicial, posição horizontal, nome configurável e hotfixes para Windows. Veja [como usar e atualizar](LEIA-ME-ATUALIZACOES.md). Baseado no Coucou original, com créditos e licenças preservados.
+> **Versão personalizada:** melhorias no WhatsApp, tela principal de aplicativos e chat em aba separada, posição horizontal, nome configurável e hotfixes para Windows. Veja [como usar e atualizar](LEIA-ME-ATUALIZACOES.md). Baseado no Coucou original, com créditos e licenças preservados.
 
 <div align="center">
 

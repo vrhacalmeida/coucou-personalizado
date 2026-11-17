@@ -5,7 +5,7 @@ O instalador original enviado nao foi alterado. Licencas e creditos originais fo
 
 ## O que foi preparado
 
-- Chat como tela inicial da ilha. Pedidos de permissao pendentes continuam tendo prioridade.
+- Aplicativos e integracoes como tela inicial da ilha; chat na segunda aba. Pedidos de permissao pendentes continuam tendo prioridade.
 - WhatsApp: conversa com mais espaco, fonte maior, horarios e ate 50 mensagens recentes.
   Ao abrir uma conversa, o painel usa sua largura para a leitura; Voltar retorna a lista e as integracoes.
 - Botao Abrir midia para fotos, figurinhas, audio e video. Fotos/figurinhas podem ser ampliadas

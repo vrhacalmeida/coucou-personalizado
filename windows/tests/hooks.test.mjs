@@ -568,7 +568,7 @@ test("the card shows when the island is already open, and is what it reopens on"
   assert.deepEqual(asked, ["alert:approval"]);
   assert.equal(State.defaultView(), "approval");
   State.endApproval();
-  assert.equal(State.defaultView(), "prompt");
+  assert.equal(State.defaultView(), "overview");
 });
 
 test("a question is what the island reopens on while it waits", () => {
@@ -689,7 +689,7 @@ test("an unanswered card is withdrawn after 110 s", () => {
   assert.equal(State.isPinned, false);
   assert.equal(task().state, "working");
   assert.equal(task().pillBadge, null);
-  assert.deepEqual(asked, ["dropPin", "setView:prompt"]);
+  assert.deepEqual(asked, ["dropPin", "setView:overview"]);
 });
 
 test("a card answered in time leaves nothing for the 110 s timer to undo", () => {
