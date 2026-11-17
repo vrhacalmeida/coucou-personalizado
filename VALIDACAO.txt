@@ -1,30 +1,30 @@
-Validacao desta personalizacao
+Validacao da versao personalizada para Windows
 
-PASSOU: npm ci --ignore-scripts
-PASSOU: npx tsc --noEmit
-PASSOU: npx vite build
-PASSOU: node --import ./tests/setup.mjs --test --test-force-exit --test-timeout=20000 "tests/**/*.test.mjs"
-Resultado: 569 testes, 569 aprovados, 0 falhas.
+Commit compilado: aecbea2bedbb9631c23835ccee88406928cfd485
+Execucao: https://github.com/vrhacalmeida/coucou-personalizado/actions/runs/44143413119
+Resultado: sucesso.
 
-Inclui testes de importacao de transcricao, envio do contexto e preservacao em falha,
-carregamento de midia apenas ao clicar, preservacao do elemento de midia ao chegar mensagem,
-e geracao de hotfix com hashes e somente os binarios alterados.
+PASSOU: verificacao de tipos TypeScript.
+PASSOU: compilacao da interface (Vite) e aplicativo nativo (Rust/Tauri).
+PASSOU: 572 testes da interface, 0 falhas.
+PASSOU: 611 testes Rust do aplicativo, 0 falhas; 6 testes de hardware/gravacoes ignorados.
+PASSOU: 35 testes Rust do componente de integracao, 0 falhas.
+PASSOU: testes do aplicador no Windows PowerShell: substituicao, backup,
+preservacao de configuracoes, rejeicao de hash incorreto e rollback quando uma copia falha.
 
-NAO EXECUTADO: compilacao Rust/Tauri e testes nativos (ambiente Linux sem Rust instalado).
-NAO EXECUTADO: workflow GitHub Windows.
-NAO EXECUTADO: aplicar/rollback do hotfix em uma instalacao Windows real.
-NAO EXECUTADO: arraste real, persistencia da posicao e WhatsApp/GOWA conectado com midias reais.
-Nao ha executavel Windows novo neste pacote. Nao use o instalador original esperando estas mudancas.
-Apos compilar, validar fotos, figurinhas (incluindo animadas), audio/video, conexao com Codex,
-permissoes, centralizacao, multiplos monitores e preservacao dos dados antes de distribuir o hotfix.
+Hotfix Windows gerado, com executaveis, manifesto SHA256 e aplicadores .cmd/.ps1.
+Artefato: Coucou-Hotfix-Windows, na execucao acima.
+O instalador original enviado pelo usuario nao foi modificado.
 
-A midia usa GET /message/{message_id}/download do GOWA e o arquivo statics/media no mesmo gateway,
-com redirecionamentos/proxy desativados, tipos permitidos e limite de 24 MiB.
-Tambem deve ser conferida a compatibilidade da versao de GOWA instalada pelo usuario.
+Ainda depende de teste no computador do usuario:
+- WhatsApp/GOWA conectado com fotos, figurinhas, audio e video reais.
+- Arraste, persistencia de posicao, multiplos monitores e reconhecimento de voz com o nome escolhido.
+- Aplicacao sobre a instalacao pessoal existente (o teste automatizado usa pastas descartaveis).
 
-Nome personalizado: interface compilada novamente (tsc e Vite).
-Suite apos renomeacao: 521 testes aprovados, 0 falhas.
-Testes adicionais de nome incluem nomes validos/invalidos, traducao e preservacao de IDs tecnicos.
-Voz personalizada e alias .cmd adicionados no backend; ainda dependem da compilacao/testes no Windows.
-Repositorio de destino: vrhacalmeida/coucou-personalizado, publico por escolha do usuario.
-Compilacao nativa sera validada no GitHub Actions.
+As midias sao solicitadas ao clicar, pelo gateway GOWA configurado, com limite de 24 MiB.
+OpenWA mantem texto e rotulos; o visualizador de midias desta versao requer GOWA.
+O historico do ChatGPT e importado manualmente em .txt/.md; nao existe sincronizacao automatica.
+A atualizacao e aplicada com o app fechado; nao exige reinstalacao nem refazer as configuracoes.
+
+Por escolha do usuario, android/app/src/test/resources/test-desktop.p12 ficou fora do repositorio publico.
+Isso nao afeta o aplicativo Windows. Os testes Android nao foram executados.
