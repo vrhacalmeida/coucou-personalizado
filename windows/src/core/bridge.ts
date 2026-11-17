@@ -486,7 +486,7 @@ export const Bridge = {
   /** The island's copy, asked once at start (then the "whatsapp" event). Island only. */
   whatsappIsland: () => call<WaIslandView>("whatsapp_island"),
   /** A conversation opened in the card: its latest messages, the receipt if Settings says so. */
-  whatsappMedia: (chat: string, message: string) => call<string>("whatsapp_media", { chat, message }),
+  whatsappMedia: (chat: string, message: string) => callOrThrow<string>("whatsapp_media", { chat, message }),
   whatsappOpen: (chat: string) => call<void>("whatsapp_open", { chat }),
   whatsappClose: (chat: string) => call<void>("whatsapp_close", { chat }),
   /** The card's ↗: WhatsApp Desktop at the open conversation, or WhatsApp Web without it. */

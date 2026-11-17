@@ -1,3 +1,4 @@
+import { WhatsApp } from "../core/whatsapp";
 // The island: DOM shell, sizing animation, Mochi placement, mouse handling.
 // Mirrors IslandRootView.swift + IslandWindowController.swift.
 
@@ -863,7 +864,7 @@ export class Island {
     if (State.mode === "expanded" && State.view === "question" && State.pendingApproval?.questions) {
       h = QUESTION_PICKER_H;
     }
-    if (State.mode === "expanded" && State.view === "overview" && State.focusTask?.id === "integration_whatsapp") h = 520;
+    if (State.mode === "expanded" && State.view === "overview" && State.focusTask?.id === "integration_whatsapp" && WhatsApp.conversationOpen) h = 480;
     const r = State.mode === "expanded" ? EXPANDED_CORNER : ROUNDED_CORNER;
     return { w, h, r };
   }
@@ -1490,7 +1491,7 @@ export class Island {
     if (State.wardrobePreview && !(expanded && State.view === "wardrobe")) State.wardrobePreview = null;
 
     this.header.sync();
-    const waSize = State.mode === "expanded" && State.view === "overview" && State.focusTask?.id === "integration_whatsapp";
+    const waSize = State.mode === "expanded" && State.view === "overview" && State.focusTask?.id === "integration_whatsapp" && WhatsApp.conversationOpen;
     if (waSize !== this.lastWhatsAppSize) { this.lastWhatsAppSize = waSize; this.animateGeometry(false); }
     for (const [name, view] of this.views) {
       const on = name === State.view;

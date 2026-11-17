@@ -41,7 +41,7 @@ function avatar(name: string, isGroup: boolean, size = 16): HTMLElement {
   return el;
 }
 
-function bubble(m: WaMessage, isGroup: boolean, playing: (on: boolean) => void): HTMLElement {
+function bubble(m: WaMessage, chat: string, isGroup: boolean, playing: (on: boolean) => void): HTMLElement {
   const { label, value } = previewParts(m);
   const box = h("div", { class: m.fromMe ? "wa-bubble mine" : "wa-bubble" });
   if (isGroup && !m.fromMe && m.senderName) box.append(h("div", { class: "wa-sender", text: m.senderName }));
@@ -53,7 +53,18 @@ function bubble(m: WaMessage, isGroup: boolean, playing: (on: boolean) => void):
     load.addEventListener("click", async () => {
       load.disabled = true;
       load.textContent = "Carregando…";
-      const url = await Bridge.whatsappMedia(m.chat, m.id);
+      let url: string | null = null;
+      try { url = await Bridge.whatsappMedia(chat, m.id); }
+      catch (err) {
+        if (!slot.isConnected) return;
+        const detail = String(err);
+        load.disabled = false;
+        load.textContent = detail.includes("Unsupported media path") ? "Caminho de mídia incompatível com o gateway. Tentar novamente"
+          : detail.includes("Unsupported media format") ? "Formato de mídia não reconhecido. Tentar novamente"
+          : detail.includes("Conversation closed") ? "Abra a conversa novamente para carregar a mídia"
+          : "O gateway não conseguiu fornecer a mídia. Tentar novamente";
+        return;
+      }
       if (!slot.isConnected) return;
       if (!url) {
         load.disabled = false;
@@ -285,7 +296,7 @@ export function buildWhatsAppCard(host: WhatsAppCardHost): WhatsAppCard {
       for (const m of shown) {
         const existing = old.get(m.id);
         if (existing) continue;
-        const node = bubble(m, c.isGroup, (on) => host.holdOpen(on || field.value.trim().length > 0));
+        const node = bubble(m, c.id, c.isGroup, (on) => host.holdOpen(on || field.value.trim().length > 0));
         node.dataset.messageId = m.id;
         messages.append(node);
       }

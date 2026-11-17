@@ -67,6 +67,31 @@ pub fn endpoint(base: &Url, path: &str, query: &[(&str, String)]) -> Option<Url>
     (url.host_str() == base.host_str() && url.port_or_known_default() == base.port_or_known_default()).then_some(url)
 }
 
+/// Convert GOWA filesystem paths to its served media route, including Windows paths.
+fn media_route(raw: &str) -> Option<String> {
+    let normalized = raw.replace('\\', "/");
+    if normalized.contains(['%', '?', '#']) || normalized.chars().any(char::is_control)
+        || normalized.split('/').any(|p| p == "..") { return None; }
+    let path = normalized.strip_prefix("./").unwrap_or(&normalized).trim_start_matches('/');
+    let route = if path.starts_with("statics/media/") { path }
+        else { let i = path.rfind("/statics/media/")?; &path[i+1..] };
+    (!route.ends_with('/') && !route.split('/').any(|p| p == ".")).then(|| format!("/{route}"))
+}
+
+#[cfg(test)] mod media_route_tests {
+    use super::*;
+    #[test] fn windows_and_relative_gateway_paths() {
+        for input in [r"statics\media\user\photo.jpg", r"C:\GOWA\statics\media\user\photo.jpg", "./statics/media/user/photo.jpg", "/opt/gowa/statics/media/user/photo.jpg"] {
+            assert_eq!(media_route(input).as_deref(), Some("/statics/media/user/photo.jpg"));
+        }
+    }
+    #[test] fn rejects_traversal_and_non_media_paths() {
+        for input in ["statics/media/../secret", "statics/media/%2e%2e/secret", "C:/Windows/secret", "statics/media/a?token=secret", "statics/media/"] {
+            assert!(media_route(input).is_none());
+        }
+    }
+}
+
 /// HTTP to the gateway: never a redirect, never a proxy, nothing kept between calls.
 pub struct Http {
     base: Url,
@@ -355,13 +380,9 @@ impl Provider {
         let value: Value = serde_json::from_slice(&meta).map_err(|_| WaError::Unreachable)?;
         let result = &value["results"];
         let raw = result["file_path"].as_str().unwrap_or("");
-        // No absolute paths, traversal, external URLs or redirects.
-        let path = raw.trim_start_matches('/');
-        if !path.starts_with("statics/media/") || path.split('/').any(|s| s == ".." || s == ".")
-            || path.contains(['\\', '%', '?', '#']) {
-            return Err(WaError::Refused("Unsupported media path".into()));
-        }
-        let url = endpoint(&http.base, &format!("/{path}"), &[]).ok_or(WaError::Unreachable)?;
+        // Filesystem paths are mapped to a fixed route on the configured gateway only.
+        let path = media_route(raw).ok_or_else(|| WaError::Refused("Unsupported media path".into()))?;
+        let url = endpoint(&http.base, &path, &[]).ok_or(WaError::Unreachable)?;
         let mut req = http.client.get(url).timeout(Duration::from_secs(45));
         for (key, value) in &http.headers { req = req.header(*key, value); }
         let response = req.send().await.map_err(|_| WaError::Unreachable)?;
