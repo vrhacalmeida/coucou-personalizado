@@ -4,6 +4,7 @@
 
 import { beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { emit, sent, internals } from "./tauri.mjs";
 import { installFakeDom } from "./fakedom.mjs";
 import {
@@ -346,4 +347,12 @@ test("media is fetched on click only and its player survives new messages", asyn
     c.el.find(".wa-back")[0].fire("click");
     assert.equal(c.el.find("IMG").length, 0);
   } finally { internals.invoke = invoke; c.el.remove(); }
+});
+
+test("production and development CSP permit the local media data URLs returned by the bridge", () => {
+  const config = JSON.parse(readFileSync(new URL("../src-tauri/tauri.conf.json", import.meta.url), "utf8"));
+  for (const policy of [config.app.security.csp, config.app.security.devCsp]) {
+    const media = policy.split(";").find((rule) => rule.trim().startsWith("media-src "));
+    assert.match(media, /(?:^|\s)data:(?:\s|$)/);
+  }
 });

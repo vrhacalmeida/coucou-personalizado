@@ -40,7 +40,8 @@ O aplicador:
 5. Substitui apenas coucou.exe e/ou coucou-hook.exe. Nao edita dados de conta, conversas ou configuracoes.
 6. Se uma copia falhar, tenta restaurar os arquivos que substituiu.
 
-Extraia o ZIP COMPLETO do hotfix. No PowerShell aberto na pasta extraida:
+Extraia o ZIP COMPLETO do hotfix e de dois cliques em Aplicar-Hotfix.cmd.
+Se preferir, no PowerShell aberto na pasta extraida:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\Aplicar-Hotfix.ps1

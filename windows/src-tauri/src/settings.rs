@@ -456,6 +456,7 @@ mod tests {
     /// A settings.json in which no value is the default one.
     // Two #: the colours in it are written "#RRGGBB".
     const CUSTOM: &str = r##"{
+  "appName": "Jarvis",
   "soundEnabled": false,
   "soundVolume": 0.5,
   "autoCloseInterval": 30.0,
@@ -979,6 +980,7 @@ mod tests {
         assert_eq!(
             keys,
             [
+                "appName",
                 "soundEnabled",
                 "soundVolume",
                 "autoCloseInterval",

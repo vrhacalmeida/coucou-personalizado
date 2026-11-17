@@ -440,6 +440,9 @@ pub fn move_horizontal(app: &AppHandle, pref: &str, delta: f64, save: bool, rese
     let mut anchor = horizontal(app).lock().unwrap();
     if reset { *anchor = 0.5; }
     else if delta.is_finite() { *anchor = (*anchor + delta * m.scale_factor() / m.size().width as f64).clamp(0.0, 1.0); }
+    let half_panel = (PANEL_W * m.scale_factor()).min(m.size().width as f64) / 2.0;
+    let margin = half_panel / m.size().width.max(1) as f64;
+    *anchor = (*anchor).clamp(margin, 1.0 - margin);
     if save {
         if let Ok(dir) = app.path().app_data_dir() {
             let _ = std::fs::create_dir_all(&dir);
@@ -459,7 +462,8 @@ pub fn apply_geometry(app: &AppHandle, pref: &str, collapsed: Option<(f64, f64)>
     let (lw, lh) = collapsed.map(clamp_collapsed).unwrap_or((PANEL_W, PANEL_H));
     let pw = (lw * scale).round().max(1.0) as u32;
     let ph = (lh * scale).round().max(1.0) as u32;
-    let anchor = *horizontal(app).lock().unwrap();
+    let margin = (PANEL_W * scale).min(ms.width as f64) / (2.0 * ms.width.max(1) as f64);
+    let anchor = (*horizontal(app).lock().unwrap()).clamp(margin, 1.0 - margin);
     let max_left = (ms.width as i32 - pw as i32).max(0);
     let left = (anchor * ms.width as f64 - pw as f64 / 2.0).round() as i32;
     let x = mp.x + left.clamp(0, max_left);

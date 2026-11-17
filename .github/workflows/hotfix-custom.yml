@@ -22,13 +22,17 @@ jobs:
           cache: npm
           cache-dependency-path: windows/package-lock.json
       - uses: dtolnay/rust-toolchain@stable
-      - uses: actions/cache@v4
+      - uses: actions/cache/restore@v4
+        id: build-cache
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
             windows/target
           key: custom-hotfix-${{ runner.os }}-${{ hashFiles('windows/Cargo.lock') }}
+      - name: Testar aplicador e rollback no Windows PowerShell
+        shell: powershell
+        run: ./hotfix/Test-Hotfix.ps1
       - run: npm ci
       - run: npx tsc --noEmit
       - run: node --import ./tests/setup.mjs --test --test-force-exit --test-timeout=20000 "tests/**/*.test.mjs"
@@ -41,3 +45,12 @@ jobs:
           path: windows/release/hotfix-*/
           if-no-files-found: error
           retention-days: 14
+      - name: Guardar cache de compilacao mesmo se um teste falhar
+        if: always() && !cancelled() && steps.build-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            windows/target
+          key: custom-hotfix-${{ runner.os }}-${{ hashFiles('windows/Cargo.lock') }}

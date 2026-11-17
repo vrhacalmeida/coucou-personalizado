@@ -28,6 +28,7 @@ test('hotfix packages changed binaries only with verifiable hashes and applicato
     assert.deepEqual(manifest.files.map((file) => file.name), ['coucou.exe']);
     assert.equal(manifest.files[0].sha256, createHash('sha256').update(readFileSync(join(dest, 'payload/coucou.exe'))).digest('hex'));
     assert.ok(readFileSync(join(dest, 'Aplicar-Hotfix.ps1')).length);
+    assert.match(readFileSync(join(dest, 'Aplicar-Hotfix.cmd'), 'utf8'), /Aplicar-Hotfix\.ps1/);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 test('hotfix refuses an incomplete Windows build', () => {

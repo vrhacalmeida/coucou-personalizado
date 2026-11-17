@@ -996,7 +996,7 @@ mod tests {
         let zone = home_zone(960.0, 0.0, 1.5);
         assert!(zone.contains((960.0, 10.0)), "on the island");
         assert!(zone.contains((960.0 - 359.0 * 1.5, 300.0 * 1.5)), "inside the panel");
-        assert!(!zone.contains((960.0, 330.0 * 1.5)), "below the panel");
+        assert!(!zone.contains((960.0, (crate::island::PANEL_H + 10.0) * 1.5)), "below the panel");
         assert!(!zone.contains((100.0, 10.0)), "top-left corner of the screen");
     }
 

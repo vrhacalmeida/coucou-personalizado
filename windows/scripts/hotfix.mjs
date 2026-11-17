@@ -27,7 +27,8 @@ try {
     files: files.map(({ name, sha256 }) => ({ name, sha256 })) };
   writeFileSync(join(dest, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
   copyFileSync(join(root, 'hotfix', 'Aplicar-Hotfix.ps1'), join(dest, 'Aplicar-Hotfix.ps1'));
-  writeFileSync(join(dest, 'LEIA-ME.txt'), 'Extraia todos os arquivos. No PowerShell dentro desta pasta execute:\r\n' +
+  writeFileSync(join(dest, 'Aplicar-Hotfix.cmd'), '@echo off\r\npowershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Aplicar-Hotfix.ps1" %*\r\nset "COUCOU_HOTFIX_EXIT=%ERRORLEVEL%"\r\npause\r\nexit /b %COUCOU_HOTFIX_EXIT%\r\n');
+  writeFileSync(join(dest, 'LEIA-ME.txt'), 'Extraia todos os arquivos e abra Aplicar-Hotfix.cmd. Alternativamente, no PowerShell dentro desta pasta execute:\r\n' +
     'powershell -NoProfile -ExecutionPolicy Bypass -File .\\Aplicar-Hotfix.ps1\r\n' +
     'Se necessario acrescente -InstallDir "C:\\caminho\\do\\Coucou".\r\n' +
     'O aplicador verifica SHA256, pede para fechar o app e salva os binarios antigos em .coucou-hotfix-backups.\r\n' +

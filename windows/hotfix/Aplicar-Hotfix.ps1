@@ -48,6 +48,7 @@ try {
     # Stage and back up every file before replacing anything. User data is outside this list.
     foreach ($file in $manifest.files) {
         $target = Join-Path $InstallDir $file.name
+        if ((Test-Path -LiteralPath $target) -and !(Test-Path -LiteralPath $target -PathType Leaf)) { throw "Destino nao e um arquivo: $($file.name)" }
         $existed[$file.name] = Test-Path -LiteralPath $target
         if ($existed[$file.name]) { Copy-Item -LiteralPath $target -Destination (Join-Path $backup $file.name) }
         Copy-Item -LiteralPath (Join-Path (Join-Path $PSScriptRoot 'payload') $file.name) -Destination (Join-Path $stage $file.name)
