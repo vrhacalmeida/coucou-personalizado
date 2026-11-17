@@ -1,0 +1,43 @@
+name: Coucou - hotfix personalizado
+on:
+  push:
+    branches: [main]
+    paths: ['windows/**', '.github/workflows/hotfix-custom.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: windows
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: windows/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            windows/target
+          key: custom-hotfix-${{ runner.os }}-${{ hashFiles('windows/Cargo.lock') }}
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: node --import ./tests/setup.mjs --test --test-force-exit --test-timeout=20000 "tests/**/*.test.mjs"
+      - run: cargo build --release --locked -p coucou-hook
+      - run: npm run hotfix
+      - run: cargo test --workspace --locked
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Coucou-Hotfix-Windows
+          path: windows/release/hotfix-*/
+          if-no-files-found: error
+          retention-days: 14
