@@ -1,0 +1,22 @@
+name: Validar e entregar aplicador corrigido
+on:
+  push:
+    paths: ['windows/hotfix/**', '.github/workflows/repair-applicator.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  applicator:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Testar deteccao automatica, backup e rollback
+        shell: powershell
+        run: ./windows/hotfix/Test-Hotfix.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Aplicador-Corrigido
+          path: windows/hotfix/Aplicar-Hotfix.ps1
+          retention-days: 14

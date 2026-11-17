@@ -26,7 +26,17 @@ if (!$InstallDir) {
             if ($app.InstallLocation) { $candidates += $app.InstallLocation }
         }
     }
-    $found = @($candidates | Where-Object { $_ -and (Test-Path -LiteralPath (Join-Path $_ 'coucou.exe') -PathType Leaf) } | Select-Object -Unique)
+    # Uninstall registry entries can surround InstallLocation with quotes.
+    # Do not pass untrusted candidate strings directly to PowerShell drive parsing.
+    $found = @(@(foreach ($candidate in $candidates) {
+        if (!$candidate) { continue }
+        $folder = [Environment]::ExpandEnvironmentVariables(([string]$candidate).Trim().Trim('"'))
+        try {
+            if (![IO.Path]::IsPathRooted($folder)) { continue }
+            if (![IO.File]::Exists([IO.Path]::Combine($folder, 'coucou.exe'))) { continue }
+            (Get-Item -LiteralPath $folder -ErrorAction Stop).FullName
+        } catch { continue }
+    }) | Sort-Object -Unique)
     if ($found.Count -ne 1) { throw 'Nao foi possivel escolher a instalacao. Execute com -InstallDir "C:\caminho\do\Coucou".' }
     $InstallDir = $found[0]
 }

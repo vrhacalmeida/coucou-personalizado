@@ -30,6 +30,18 @@ try {
     $backup = @(Get-ChildItem (Join-Path $test.Install '.coucou-hotfix-backups') -Directory)[0].FullName
     Check (([IO.File]::ReadAllText((Join-Path $backup 'coucou.exe'))) -eq 'old-app') 'Original app was not backed up'
 
+    # Reproduce quoted InstallLocation returned by Windows uninstall entries.
+    $test = Prepare 'quoted-autodetection'
+    $script:QuotedInstall = '"' + $test.Install + '"'
+    function Get-ItemProperty { [CmdletBinding()] param($Path) @{ DisplayName = 'Coucou'; InstallLocation = $script:QuotedInstall } }
+    function Get-Process { [CmdletBinding()] param($Name) @() }
+    try {
+        & $test.Apply
+        Check (([IO.File]::ReadAllText((Join-Path $test.Install 'coucou.exe'))) -eq 'new-app') 'Quoted automatic detection did not update the app'
+    } finally {
+        Remove-Item Function:\Get-ItemProperty, Function:\Get-Process
+    }
+
     $test = Prepare 'bad-hash'
     Put (Join-Path $test.Payload 'coucou.exe') 'modified-after-manifest'
     $failed = $false
