@@ -356,3 +356,38 @@ test("production and development CSP permit the local media data URLs returned b
     assert.match(media, /(?:^|\s)data:(?:\s|$)/);
   }
 });
+
+test("a WhatsApp video opens with controls, survives chat updates and pauses on close", async () => {
+  const fetched = sent("whatsapp_media").length;
+  const c = card(); document.body.append(c.el);
+  const message = msg({ id: "video", media: { kind: "video" }, text: "" });
+  WhatsApp.view = connected({ conversations: [conversation({ messages: [message] })] });
+  State.mode = "expanded"; State.focusId = WHATSAPP_ID;
+  c.sync(); c.el.find(".wa-row")[0].fire("click");
+  assert.equal(sent("whatsapp_media").length, fetched);
+  const invoke = internals.invoke;
+  const queryAll = document.querySelectorAll;
+  internals.invoke = async (cmd, args) => {
+    const value = await invoke(cmd, args);
+    return cmd === "whatsapp_media" ? "data:video/mp4;base64,AA==" : value;
+  };
+  try {
+    c.el.find(".wa-load")[0].fire("click");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const video = c.el.find("VIDEO")[0];
+    assert.ok(video);
+    assert.equal(video.controls, true);
+    assert.equal(video.preload, "metadata");
+    assert.equal(video.autoplay, undefined);
+    assert.equal(video.src, "data:video/mp4;base64,AA==");
+    document.querySelectorAll = () => [video];
+    video.fire("play");
+    assert.equal(c.calls.hold.at(-1), true);
+    WhatsApp.view.conversations[0].messages.push(msg({ id: "next", text: "Mensagem nova" }));
+    c.sync();
+    assert.equal(c.el.find("VIDEO")[0], video);
+    c.el.find(".wa-back")[0].fire("click");
+    assert.equal(video.paused, true);
+    assert.equal(c.calls.hold.at(-1), false);
+  } finally { internals.invoke = invoke; document.querySelectorAll = queryAll; c.el.remove(); }
+});

@@ -92,6 +92,61 @@ fn media_route(raw: &str) -> Option<String> {
     }
 }
 
+/// GOWA deliberately serves non-image attachments as application/octet-stream.
+/// Recover only known media signatures, never trust a filename as a media type.
+fn media_mime(header: &str, bytes: &[u8]) -> Option<&'static str> {
+    let mime = header.split(';').next().unwrap_or("").trim().to_ascii_lowercase();
+    let declared = match mime.as_str() {
+        "image/jpeg" => Some("image/jpeg"), "image/png" => Some("image/png"),
+        "image/webp" => Some("image/webp"), "image/gif" => Some("image/gif"),
+        "audio/ogg" | "application/ogg" => Some("audio/ogg"),
+        "audio/mpeg" => Some("audio/mpeg"), "audio/mp4" => Some("audio/mp4"),
+        "audio/wav" => Some("audio/wav"), "audio/webm" => Some("audio/webm"),
+        "video/mp4" => Some("video/mp4"), "video/webm" => Some("video/webm"),
+        "video/ogg" => Some("video/ogg"), _ => None,
+    };
+    if declared.is_some() { return declared; }
+    if bytes.starts_with(b"\x89PNG\r\n\x1a\n") { return Some("image/png"); }
+    if bytes.starts_with(&[0xff, 0xd8, 0xff]) { return Some("image/jpeg"); }
+    if bytes.starts_with(b"GIF87a") || bytes.starts_with(b"GIF89a") { return Some("image/gif"); }
+    if bytes.starts_with(b"RIFF") {
+        match bytes.get(8..12) {
+            Some(b"WEBP") => return Some("image/webp"),
+            Some(b"WAVE") => return Some("audio/wav"), _ => {},
+        }
+    }
+    // ISO BMFF: verify the complete ftyp box and its MP4 brands. HEIC/AVIF also
+    // use ftyp, so the marker alone is not sufficient to identify a video.
+    if bytes.len() >= 16 && bytes.get(4..8) == Some(b"ftyp") {
+        let size = u32::from_be_bytes(bytes[..4].try_into().ok()?) as usize;
+        if (16..=4096).contains(&size) && size <= bytes.len() && size % 4 == 0 {
+            if matches!(bytes.get(8..12), Some(b"M4A ") | Some(b"M4B ")) { return Some("audio/mp4"); }
+            for brand in bytes[8..size].chunks_exact(4).enumerate().filter_map(|(i, b)| (i != 1).then_some(b)) {
+                if matches!(brand, b"isom" | b"mp41" | b"mp42" | b"avc1" | b"M4V " | b"MSNV" | b"dash")
+                    || (brand.starts_with(b"iso") && brand[3].is_ascii_digit()) {
+                    return Some("video/mp4");
+                }
+            }
+        }
+    }
+    let head = &bytes[..bytes.len().min(4096)];
+    if head.starts_with(b"\x1a\x45\xdf\xa3") && head.windows(7).any(|w| w == b"\x42\x82\x84webm") {
+        return Some("video/webm");
+    }
+    if head.starts_with(b"OggS") {
+        if head.windows(7).any(|w| w == b"\x80theora") { return Some("video/ogg"); }
+        if head.windows(8).any(|w| w == b"OpusHead") || head.windows(7).any(|w| w == b"\x01vorbis") {
+            return Some("audio/ogg");
+        }
+    }
+    if bytes.len() >= 10 && bytes.starts_with(b"ID3") { return Some("audio/mpeg"); }
+    if bytes.len() >= 4 && bytes[0] == 0xff && bytes[1] & 0xe0 == 0xe0
+        && bytes[1] & 0x06 != 0 && bytes[2] & 0xf0 != 0xf0 && bytes[2] & 0xf0 != 0 {
+        return Some("audio/mpeg");
+    }
+    None
+}
+
 /// HTTP to the gateway: never a redirect, never a proxy, nothing kept between calls.
 pub struct Http {
     base: Url,
@@ -387,13 +442,9 @@ impl Provider {
         for (key, value) in &http.headers { req = req.header(*key, value); }
         let response = req.send().await.map_err(|_| WaError::Unreachable)?;
         if !response.status().is_success() { return Err(WaError::Unreachable); }
-        let mime = response.headers().get("content-type").and_then(|v| v.to_str().ok())
-            .unwrap_or("").split(';').next().unwrap_or("").trim().to_lowercase();
-        let allowed = matches!(mime.as_str(), "image/jpeg" | "image/png" | "image/webp" | "image/gif"
-            | "audio/ogg" | "application/ogg" | "audio/mpeg" | "audio/mp4" | "audio/wav" | "audio/webm"
-            | "video/mp4" | "video/webm" | "video/ogg");
-        if !allowed { return Err(WaError::Refused("Unsupported media format".into())); }
+        let declared = response.headers().get("content-type").and_then(|v| v.to_str().ok()).unwrap_or("").to_owned();
         let bytes = crate::net::read_capped(response, 24 * 1024 * 1024).await.map_err(|_| WaError::Unreachable)?;
+        let mime = media_mime(&declared, &bytes).ok_or_else(|| WaError::Refused("Unsupported media format".into()))?;
         Ok(format!("data:{mime};base64,{}", gateway::base64(&bytes)))
     }
 
@@ -502,5 +553,61 @@ mod tests {
         assert_eq!(Provider::gowa_check(b"", 200), Ok(()));
         assert_eq!(Provider::openwa_check(b"", 403), Err(WaError::Unauthorized));
         assert_eq!(Provider::openwa_check(br#"{"message":"Session not found"}"#, 404), Err(WaError::Refused("Session not found".into())));
+    }
+}
+
+#[cfg(test)]
+mod media_format_tests {
+    use super::*;
+
+    const MP4: &[u8] = b"\0\0\0\x18ftypisom\0\0\x02\0isommp42";
+
+    #[test]
+    fn gowa_binary_video_and_voice_attachments_get_playable_types() {
+        assert_eq!(media_mime("application/octet-stream", MP4), Some("video/mp4"));
+        assert_eq!(media_mime("video/x-m4v", MP4), Some("video/mp4"));
+        assert_eq!(media_mime("", b"\x1a\x45\xdf\xa3\x87\x42\x82\x84webm"), Some("video/webm"));
+        assert_eq!(media_mime("application/octet-stream", b"OggS\0voice-packet:OpusHead"), Some("audio/ogg"));
+        assert_eq!(media_mime(" Video/MP4; charset=binary ", MP4), Some("video/mp4"));
+        assert_eq!(media_mime("audio/mp4", MP4), Some("audio/mp4"));
+    }
+
+    #[test]
+    fn binary_fallback_rejects_documents_and_incomplete_or_image_ftyp_boxes() {
+        for bytes in [b"<html>not a video</html>".as_slice(), b"%PDF-1.7", b"", &MP4[..12],
+            b"\0\0\0\x18ftypavif\0\0\0\0avifmif1", b"\0\0\xff\xffftypisom\0\0\0\0"] {
+            assert_eq!(media_mime("application/octet-stream", bytes), None);
+        }
+    }
+
+    #[tokio::test]
+    async fn download_maps_windows_path_and_sniffs_binary_video_from_gateway() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let base = Url::parse(&format!("http://{}", listener.local_addr().unwrap())).unwrap();
+        let server = tokio::spawn(async move {
+            for (expected, content_type, body) in [
+                ("/message/VIDEO1/download?", "application/json", br#"{"code":"SUCCESS","results":{"file_path":"statics\\media\\video.mp4"}}"#.as_slice()),
+                ("/statics/media/video.mp4 ", "application/octet-stream", MP4),
+            ] {
+                let (mut socket, _) = listener.accept().await.unwrap();
+                let mut request = Vec::new();
+                loop {
+                    let mut buf = [0; 1024];
+                    let n = socket.read(&mut buf).await.unwrap();
+                    assert!(n > 0);
+                    request.extend_from_slice(&buf[..n]);
+                    if request.windows(4).any(|w| w == b"\r\n\r\n") { break; }
+                }
+                assert!(String::from_utf8_lossy(&request).contains(expected));
+                let header = format!("HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len());
+                socket.write_all(header.as_bytes()).await.unwrap();
+                socket.write_all(body).await.unwrap();
+            }
+        });
+        let provider = Provider::Gowa { http: Http::new(base, vec![]).unwrap(), device: tokio::sync::Mutex::new(Some("test-device".into())) };
+        let result = tokio::time::timeout(Duration::from_secs(5), provider.media("test@s.whatsapp.net", "VIDEO1")).await.unwrap().unwrap();
+        assert_eq!(result, format!("data:video/mp4;base64,{}", gateway::base64(MP4)));
+        server.await.unwrap();
     }
 }
